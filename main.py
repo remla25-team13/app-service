@@ -59,5 +59,16 @@ def delete():
     """
     return "Delete operation"
 
+@app.route("/version", methods=["GET"])
+def version():
+    """
+    Version endpoint that returns the application version.
+    ---
+    responses:
+      200:
+        description: Application version in JSON format
+    """
+    return {"version": "0.0.1"}
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)
