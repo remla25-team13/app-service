@@ -1,23 +1,63 @@
-from flask import Flask
+from flask import Flask, request
+from flasgger import Swagger
 
 app = Flask(__name__)
+swagger = Swagger(app)
 
 @app.route("/", methods=["GET"])
 def home():
-    return "Hello, World!", 200
+    """
+    Home endpoint returning a greeting.
+    ---
+    responses:
+      200:
+        description: A greeting message
+    """
+    return "Hello, World!"
 
 @app.route("/create", methods=["POST"])
 def create():
-    return "Create operation", 200
+    """
+    Create endpoint to perform a create operation.
+    ---
+    responses:
+      200:
+        description: Create operation successful
+    """
+    return "Create operation"
 
 @app.route("/read", methods=["GET"])
 def read():
-    return "Read operation", 200
+    """
+    Read endpoint to perform a read operation.
+    ---
+    responses:
+      200:
+        description: Read operation successful
+    """
+    return "Read operation"
 
 @app.route("/update", methods=["PUT"])
 def update():
-    return "Update operation", 200
+    """
+    Update endpoint to perform an update operation.
+    ---
+    responses:
+      200:
+        description: Update operation successful
+    """
+    return "Update operation"
 
 @app.route("/delete", methods=["DELETE"])
 def delete():
-    return "Delete operation", 200
+    """
+    Delete endpoint to perform a delete operation.
+    ---
+    responses:
+      200:
+        description: Delete operation successful
+    """
+    return "Delete operation"
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080, debug=True)
