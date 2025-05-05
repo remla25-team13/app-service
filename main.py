@@ -68,7 +68,7 @@ def version():
       200:
         description: Application version in JSON format
     """
-    return {"version": "0.0.2"}
+    return {"version": "0.0.3"}
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)
