@@ -1,7 +1,10 @@
 from flask import Flask, request
 from flasgger import Swagger
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
+
 swagger = Swagger(app)
 
 @app.route("/", methods=["GET"])
@@ -13,7 +16,7 @@ def home():
       200:
         description: A greeting message
     """
-    return "Hello, World!"
+    return "Hello, World! From app-service."
 
 @app.route("/create", methods=["POST"])
 def create():
