@@ -2,13 +2,14 @@ from flask import Flask, request, jsonify
 from flasgger import Swagger
 from flask_cors import CORS
 import requests
+import os
 
 app = Flask(__name__)
 CORS(app)
 
 swagger = Swagger(app)
 
-MODEL_SERVICE_URL = "http://model-service:8081"
+MODEL_SERVICE_URL = os.getenv("MODEL_SERVICE_URL")
 
 @app.route("/", methods=["GET"])
 def home():
