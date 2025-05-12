@@ -2,4 +2,4 @@ Flask==2.3.3
 flasgger==0.9.7.1
 flask-cors==5.0.1
 requests==2.32.2
-lib_version @ git+https://github.com/remla25-team13/lib-version.git@31d9723e1b5aa7ce92e6d368a1e651dbcdefe90f
+lib_version @ git+https://github.com/remla25-team13/lib-version.git
