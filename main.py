@@ -204,10 +204,12 @@ def metrics():
   m+= "# HELP last_req_time This is a gauge measuring the amount of time it took the last request to complete.\n"
   m+= "# TYPE last_req_time gauge\n"
   m+= f"last_req_time {last_req_time}\n"
-
+  
   m+= "# HELP accuracy This is a gauge measuring the accuracy of the model.\n"
   m+= "# TYPE accuracy gauge\n"
-  m+= f"accuracy {correct_pred / (correct_pred + wrong_pred)}\n"
+
+  total = max(correct_pred + wrong_pred, 1)
+  m+= f"accuracy {correct_pred / total}\n"
 
   return Response(m, mimetype="text/plain")  
 
