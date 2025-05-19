@@ -4,6 +4,8 @@ RUN apt-get update && \
     apt-get install -y git && \
     rm -rf /var/lib/apt/lists/*
 
+ENV MODEL_SERVICE_URL=http://localhost:8081
+
 WORKDIR /app
 
 COPY requirements.txt .
