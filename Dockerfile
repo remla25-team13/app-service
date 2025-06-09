@@ -16,4 +16,4 @@ COPY . .
 
 EXPOSE 8080
 
-CMD ["python", "main.py"]
+CMD ["python", "-m", "flask", "run", "-p", "5000", "-h", "0.0.0.0", "--no-debug"]
