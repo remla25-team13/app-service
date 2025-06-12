@@ -136,6 +136,26 @@ def lib_version():
 
 @app.route("/predict", methods=["POST"])
 def predict():
+    """
+    Forward a review to the model-service for sentiment prediction.
+    ---
+    consumes:
+      - application/json
+    parameters:
+      - name: input_data
+        in: body
+        required: true
+        schema:
+          type: object
+          required: [review]
+          properties:
+            review:
+              type: string
+              example: This is a great restaurant!
+    responses:
+      200:
+        description: Sentiment prediction from model-service
+    """
     input_data = request.get_json()
     try:
         start = time.time()
@@ -157,6 +177,32 @@ def predict():
 
 @app.route("/submit", methods=["POST"])
 def submit():
+    """
+    Submit review to dataset.
+    ---
+    consumes:
+      - application/json
+    parameters:
+      - name: input_data
+        in: body
+        required: true
+        schema:
+          type: object
+          required: [predicted, corrected, review]
+          properties:
+            predicted:
+              type: boolean
+              example: True
+            corrected:
+              type: boolean
+              example: False
+            review:
+              type: string
+              example: This is a great restaurant!
+            model_type:
+              type: string
+              example: Gauss or Multi
+    """
     body = request.get_json()
     predicted = body["predicted"]
     corrected = body["corrected"]
