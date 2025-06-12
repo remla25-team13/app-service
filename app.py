@@ -7,7 +7,9 @@ from flasgger import Swagger
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from lib_version.version_util import VersionUtil
+from prometheus_client import Counter
 from prometheus_flask_exporter import PrometheusMetrics
+from prometheus_client import Counter, Gauge
 
 app = Flask(__name__)
 metrics = PrometheusMetrics(app)
@@ -19,36 +21,18 @@ MODEL_SERVICE_URL_B = os.getenv("MODEL_SERVICE_URL_B")
 A_B_RATE = float(os.getenv("A_B_RATE", "0.5"))
 
 # Prometheus metrics using prometheus_flask_exporter
-prediction_counter = metrics.counter(
-    "predictions",
-    "Total predictions made",
-    labels={"type": lambda: getattr(request, "model_type", "unknown")},
+prediction_counter = Counter("predictions_total", "Total predictions made", ["model_type"])
+failed_prediction_counter = Counter(
+    "failed_predictions_total", "Total failed prediction attempts", ["model_type"]
 )
-failed_prediction_counter = metrics.counter(
-    "failed_predictions",
-    "Total failed prediction attempts",
-    labels={"type": lambda: getattr(request, "model_type", "unknown")},
+correct_pred_counter = Counter(
+    "correct_pred_total", "Total correct predictions", ["model_type"]
 )
-correct_pred_counter = metrics.counter(
-    "correct_pred",
-    "Total correct predictions",
-    labels={"type": lambda: getattr(request, "model_type", "unknown")},
+wrong_pred_counter = Counter("wrong_pred_total", "Total wrong predictions", ["model_type"])
+last_req_time_gauge = Gauge(
+    "last_req_time_seconds", "Time taken for last request", ["model_type"]
 )
-wrong_pred_counter = metrics.counter(
-    "wrong_pred",
-    "Total wrong predictions",
-    labels={"type": lambda: getattr(request, "model_type", "unknown")},
-)
-last_req_time_gauge = metrics.gauge(
-    "last_req_time",
-    "Time taken for last request",
-    labels={"type": lambda: getattr(request, "model_type", "unknown")},
-)
-accuracy_gauge = metrics.gauge(
-    "accuracy",
-    "Accuracy of the model",
-    labels={"type": lambda: getattr(request, "model_type", "unknown")},
-)
+accuracy_gauge = Gauge("accuracy", "Accuracy of the model", ["model_type"])
 
 # Track correct/wrong for accuracy calculation
 correct_wrong_counts = {
@@ -160,14 +144,14 @@ def predict():
         response = requests.post(f"{url}/predict", json=input_data)
         end = time.time()
 
-        prediction_counter.inc()
-        last_req_time_gauge.set(end - start)
+        prediction_counter.labels(model_type=model_type).inc()
+        last_req_time_gauge.labels(model_type=model_type).set(end - start)
 
         return jsonify(response.json()), response.status_code
     except requests.exceptions.RequestException as e:
         _, model_type = get_model_service_url()
         request.model_type = model_type
-        failed_prediction_counter.inc()
+        failed_prediction_counter.labels(model_type=model_type).inc()
         return jsonify({"error": str(e)}), 500
 
 
@@ -181,10 +165,10 @@ def submit():
     review = body["review"]
 
     if predicted == corrected:
-        correct_pred_counter.inc()
+        correct_pred_counter.labels(model_type=model_type).inc()
         correct_wrong_counts[model_type]["correct"] += 1
     else:
-        wrong_pred_counter.inc()
+        wrong_pred_counter.labels(model_type=model_type).inc()
         correct_wrong_counts[model_type]["wrong"] += 1
 
     total = (
@@ -193,7 +177,7 @@ def submit():
     )
     if total > 0:
         accuracy = correct_wrong_counts[model_type]["correct"] / total
-        accuracy_gauge.set(accuracy)
+        accuracy_gauge.labels(model_type=model_type).set(accuracy)
 
     return "Thank you for submitting"
 
