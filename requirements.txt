@@ -4,3 +4,6 @@ flask-cors==5.0.1
 requests==2.32.2
 lib_version @ git+https://github.com/remla25-team13/lib-version.git
 prometheus-flask-exporter==0.23.2
+dvc==3.60.1
+dvc-gdrive==3.0.1
+pandas==2.3.0
