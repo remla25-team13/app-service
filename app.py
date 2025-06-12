@@ -1,22 +1,32 @@
 import os
 import random
 import time
+import subprocess
 
 import requests
+import pandas as pd
 from flasgger import Swagger
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from lib_version.version_util import VersionUtil
 from prometheus_flask_exporter import PrometheusMetrics
 
+from dvc.api import open as dvc_open
+
 app = Flask(__name__)
 metrics = PrometheusMetrics(app)
 CORS(app)
 swagger = Swagger(app)
+dataset = None
 
 MODEL_SERVICE_URL_A = os.getenv("MODEL_SERVICE_URL_A")
 MODEL_SERVICE_URL_B = os.getenv("MODEL_SERVICE_URL_B")
 A_B_RATE = float(os.getenv("A_B_RATE", "0.5"))
+
+with dvc_open("output/reviews.tsv", mode='r') as f:
+    dataset = pd.read_csv(f, delimiter="\t", quoting=3)
+    print("Saved latest reviews version from DVC")
+
 
 # Prometheus metrics using prometheus_flask_exporter
 prediction_counter = metrics.counter(
@@ -152,6 +162,26 @@ def lib_version():
 
 @app.route("/predict", methods=["POST"])
 def predict():
+    """
+    Forward a review to the model-service for sentiment prediction.
+    ---
+    consumes:
+      - application/json
+    parameters:
+      - name: input_data
+        in: body
+        required: true
+        schema:
+          type: object
+          required: [review]
+          properties:
+            review:
+              type: string
+              example: This is a great restaurant!
+    responses:
+      200:
+        description: Sentiment prediction from model-service
+    """
     input_data = request.get_json()
     try:
         start = time.time()
@@ -160,7 +190,7 @@ def predict():
         response = requests.post(f"{url}/predict", json=input_data)
         end = time.time()
 
-        prediction_counter.inc()
+        # prediction_counter.inc()
         last_req_time_gauge.set(end - start)
 
         return jsonify(response.json()), response.status_code
@@ -173,6 +203,37 @@ def predict():
 
 @app.route("/submit", methods=["POST"])
 def submit():
+    """
+    Submit review to dataset.
+    ---
+    consumes:
+      - application/json
+    parameters:
+      - name: input_data
+        in: body
+        required: true
+        schema:
+          type: object
+          required: [predicted, corrected, review]
+          properties:
+            predicted:
+              type: boolean
+              example: True
+            corrected:
+              type: boolean
+              example: False
+            review:
+              type: string
+              example: This is a great restaurant!
+            model_type:
+                type: string
+                example: gauss
+    responses:
+      200:
+        description: "Test"
+    """
+    global dataset
+
     body = request.get_json()
     predicted = body["predicted"]
     corrected = body["corrected"]
@@ -195,6 +256,18 @@ def submit():
         accuracy = correct_wrong_counts[model_type]["correct"] / total
         accuracy_gauge.set(accuracy)
 
+    dataset = pd.concat([
+        dataset,
+        pd.DataFrame({
+            "Review": [review],
+            "Liked": 1 if [corrected] else 0
+            })]).reset_index(drop=True)
+
+    dataset.to_csv("output/reviews.tsv", sep="\t", quoting=3)
+
+    subprocess.run(["dvc", "add", "output/reviews.tsv"], check=True)
+
+    subprocess.run(["dvc", "push"], check=True)
     return "Thank you for submitting"
 
 
