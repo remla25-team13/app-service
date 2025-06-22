@@ -14,6 +14,6 @@ RUN pip install --upgrade pip && \
 
 COPY . .
 
-EXPOSE 8080
+EXPOSE 5000
 
 CMD ["python", "-m", "flask", "run", "-p", "5000", "-h", "0.0.0.0", "--no-debug"]

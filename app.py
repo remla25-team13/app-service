@@ -1,5 +1,4 @@
 import os
-import random
 import time
 import subprocess
 
@@ -9,6 +8,7 @@ from flasgger import Swagger
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from lib_version.version_util import VersionUtil
+from prometheus_client import Counter, Gauge
 from prometheus_flask_exporter import PrometheusMetrics
 
 from dvc.api import open as dvc_open
@@ -19,9 +19,8 @@ CORS(app)
 swagger = Swagger(app)
 dataset = None
 
-MODEL_SERVICE_URL_A = os.getenv("MODEL_SERVICE_URL_A")
-MODEL_SERVICE_URL_B = os.getenv("MODEL_SERVICE_URL_B")
-A_B_RATE = float(os.getenv("A_B_RATE", "0.5"))
+MODEL_SERVICE_URL = os.environ["MODEL_SERVICE_URL"]
+MODEL_TYPE = os.environ["MODEL_TYPE"]
 
 with dvc_open("output/reviews.tsv", mode='r') as f:
     dataset = pd.read_csv(f, delimiter="\t", quoting=3)
@@ -29,48 +28,28 @@ with dvc_open("output/reviews.tsv", mode='r') as f:
 
 
 # Prometheus metrics using prometheus_flask_exporter
-prediction_counter = metrics.counter(
-    "predictions",
-    "Total predictions made",
-    labels={"type": lambda: getattr(request, "model_type", "unknown")},
+prediction_counter = Counter(
+    "predictions_total", "Total predictions made", ["model_type"]
 )
-failed_prediction_counter = metrics.counter(
-    "failed_predictions",
-    "Total failed prediction attempts",
-    labels={"type": lambda: getattr(request, "model_type", "unknown")},
+failed_prediction_counter = Counter(
+    "failed_predictions_total", "Total failed prediction attempts", ["model_type"]
 )
-correct_pred_counter = metrics.counter(
-    "correct_pred",
-    "Total correct predictions",
-    labels={"type": lambda: getattr(request, "model_type", "unknown")},
+correct_pred_counter = Counter(
+    "correct_pred_total", "Total correct predictions", ["model_type"]
 )
-wrong_pred_counter = metrics.counter(
-    "wrong_pred",
-    "Total wrong predictions",
-    labels={"type": lambda: getattr(request, "model_type", "unknown")},
+wrong_pred_counter = Counter(
+    "wrong_pred_total", "Total wrong predictions", ["model_type"]
 )
-last_req_time_gauge = metrics.gauge(
-    "last_req_time",
-    "Time taken for last request",
-    labels={"type": lambda: getattr(request, "model_type", "unknown")},
+last_req_time_gauge = Gauge(
+    "last_req_time_seconds", "Time taken for last request", ["model_type"]
 )
-accuracy_gauge = metrics.gauge(
-    "accuracy",
-    "Accuracy of the model",
-    labels={"type": lambda: getattr(request, "model_type", "unknown")},
-)
+accuracy_gauge = Gauge("accuracy", "Accuracy of the model", ["model_type"])
 
 # Track correct/wrong for accuracy calculation
 correct_wrong_counts = {
     "gauss": {"correct": 0, "wrong": 0},
     "multi": {"correct": 0, "wrong": 0},
 }
-
-
-def get_model_service_url():
-    if random.random() > A_B_RATE:
-        return MODEL_SERVICE_URL_A, "gauss"
-    return MODEL_SERVICE_URL_B, "multi"
 
 
 @app.route("/", methods=["GET"])
@@ -185,19 +164,17 @@ def predict():
     input_data = request.get_json()
     try:
         start = time.time()
-        url, model_type = get_model_service_url()
-        request.model_type = model_type  # set for metrics
-        response = requests.post(f"{url}/predict", json=input_data)
+        request.model_type = MODEL_TYPE  # set for metrics
+        response = requests.post(f"{MODEL_SERVICE_URL}/predict", json=input_data)
         end = time.time()
 
-        # prediction_counter.inc()
-        last_req_time_gauge.set(end - start)
+        prediction_counter.labels(model_type=MODEL_TYPE).inc()
+        last_req_time_gauge.labels(model_type=MODEL_TYPE).set(end - start)
 
         return jsonify(response.json()), response.status_code
     except requests.exceptions.RequestException as e:
-        _, model_type = get_model_service_url()
-        request.model_type = model_type
-        failed_prediction_counter.inc()
+        request.model_type = MODEL_TYPE
+        failed_prediction_counter.labels(model_type=MODEL_TYPE).inc()
         return jsonify({"error": str(e)}), 500
 
 
@@ -227,7 +204,7 @@ def submit():
               example: This is a great restaurant!
             model_type:
                 type: string
-                example: gauss
+                example: gauss or multi
     responses:
       200:
         description: "Test"
@@ -242,10 +219,10 @@ def submit():
     review = body["review"]
 
     if predicted == corrected:
-        correct_pred_counter.inc()
+        correct_pred_counter.labels(model_type=model_type).inc()
         correct_wrong_counts[model_type]["correct"] += 1
     else:
-        wrong_pred_counter.inc()
+        wrong_pred_counter.labels(model_type=model_type).inc()
         correct_wrong_counts[model_type]["wrong"] += 1
 
     total = (
@@ -254,7 +231,7 @@ def submit():
     )
     if total > 0:
         accuracy = correct_wrong_counts[model_type]["correct"] / total
-        accuracy_gauge.set(accuracy)
+        accuracy_gauge.labels(model_type=model_type).set(accuracy)
 
     dataset = pd.concat([
         dataset,
@@ -272,4 +249,4 @@ def submit():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
