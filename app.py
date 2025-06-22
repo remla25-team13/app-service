@@ -1,5 +1,4 @@
 import os
-import random
 import time
 
 import requests
@@ -7,28 +6,30 @@ from flasgger import Swagger
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from lib_version.version_util import VersionUtil
-from prometheus_client import Counter
-from prometheus_flask_exporter import PrometheusMetrics
 from prometheus_client import Counter, Gauge
+from prometheus_flask_exporter import PrometheusMetrics
 
 app = Flask(__name__)
 metrics = PrometheusMetrics(app)
 CORS(app)
 swagger = Swagger(app)
 
-MODEL_SERVICE_URL_A = os.getenv("MODEL_SERVICE_URL_A")
-MODEL_SERVICE_URL_B = os.getenv("MODEL_SERVICE_URL_B")
-A_B_RATE = float(os.getenv("A_B_RATE", "0.5"))
+MODEL_SERVICE_URL = os.environ["MODEL_SERVICE_URL"]
+MODEL_TYPE = os.environ["MODEL_TYPE"]
 
 # Prometheus metrics using prometheus_flask_exporter
-prediction_counter = Counter("predictions_total", "Total predictions made", ["model_type"])
+prediction_counter = Counter(
+    "predictions_total", "Total predictions made", ["model_type"]
+)
 failed_prediction_counter = Counter(
     "failed_predictions_total", "Total failed prediction attempts", ["model_type"]
 )
 correct_pred_counter = Counter(
     "correct_pred_total", "Total correct predictions", ["model_type"]
 )
-wrong_pred_counter = Counter("wrong_pred_total", "Total wrong predictions", ["model_type"])
+wrong_pred_counter = Counter(
+    "wrong_pred_total", "Total wrong predictions", ["model_type"]
+)
 last_req_time_gauge = Gauge(
     "last_req_time_seconds", "Time taken for last request", ["model_type"]
 )
@@ -39,12 +40,6 @@ correct_wrong_counts = {
     "gauss": {"correct": 0, "wrong": 0},
     "multi": {"correct": 0, "wrong": 0},
 }
-
-
-def get_model_service_url():
-    if random.random() > A_B_RATE:
-        return MODEL_SERVICE_URL_A, "gauss"
-    return MODEL_SERVICE_URL_B, "multi"
 
 
 @app.route("/", methods=["GET"])
@@ -159,19 +154,17 @@ def predict():
     input_data = request.get_json()
     try:
         start = time.time()
-        url, model_type = get_model_service_url()
-        request.model_type = model_type  # set for metrics
-        response = requests.post(f"{url}/predict", json=input_data)
+        request.model_type = MODEL_TYPE  # set for metrics
+        response = requests.post(f"{MODEL_SERVICE_URL}/predict", json=input_data)
         end = time.time()
 
-        prediction_counter.labels(model_type=model_type).inc()
-        last_req_time_gauge.labels(model_type=model_type).set(end - start)
+        prediction_counter.labels(model_type=MODEL_TYPE).inc()
+        last_req_time_gauge.labels(model_type=MODEL_TYPE).set(end - start)
 
         return jsonify(response.json()), response.status_code
     except requests.exceptions.RequestException as e:
-        _, model_type = get_model_service_url()
-        request.model_type = model_type
-        failed_prediction_counter.labels(model_type=model_type).inc()
+        request.model_type = MODEL_TYPE
+        failed_prediction_counter.labels(model_type=MODEL_TYPE).inc()
         return jsonify({"error": str(e)}), 500
 
 
