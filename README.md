@@ -11,7 +11,7 @@ cd app-service
 docker build -t app-service .
 
 # Run the image
-docker run -it --rm -p 8080:8080 app-service
+docker run -it --rm -p 5000:5000 app-service
 ```
 
 Or, you can use the [hosted image](https://github.com/remla25-team13/app-service/pkgs/container/app-service).
@@ -20,5 +20,5 @@ Or, you can use the [hosted image](https://github.com/remla25-team13/app-service
 docker pull ghcr.io/remla25-team13/app-service:0.1.0
 
 # Run image
-docker run -it --rm -p 8080:8080 ghcr.io/remla25-team13/app-service:0.1.0
+docker run -it --rm -p 5000:5000 ghcr.io/remla25-team13/app-service:0.1.0
 ```
