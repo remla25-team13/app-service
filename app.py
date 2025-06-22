@@ -1,7 +1,9 @@
 import os
 import time
+import subprocess
 
 import requests
+import pandas as pd
 from flasgger import Swagger
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -9,13 +11,21 @@ from lib_version.version_util import VersionUtil
 from prometheus_client import Counter, Gauge
 from prometheus_flask_exporter import PrometheusMetrics
 
+from dvc.api import open as dvc_open
+
 app = Flask(__name__)
 metrics = PrometheusMetrics(app)
 CORS(app)
 swagger = Swagger(app)
+dataset = None
 
 MODEL_SERVICE_URL = os.environ["MODEL_SERVICE_URL"]
 MODEL_TYPE = os.environ["MODEL_TYPE"]
+
+with dvc_open("output/reviews.tsv", mode='r') as f:
+    dataset = pd.read_csv(f, delimiter="\t", quoting=3)
+    print("Saved latest reviews version from DVC")
+
 
 # Prometheus metrics using prometheus_flask_exporter
 prediction_counter = Counter(
@@ -193,9 +203,14 @@ def submit():
               type: string
               example: This is a great restaurant!
             model_type:
-              type: string
-              example: Gauss or Multi
+                type: string
+                example: gauss or multi
+    responses:
+      200:
+        description: "Test"
     """
+    global dataset
+
     body = request.get_json()
     predicted = body["predicted"]
     corrected = body["corrected"]
@@ -218,6 +233,18 @@ def submit():
         accuracy = correct_wrong_counts[model_type]["correct"] / total
         accuracy_gauge.labels(model_type=model_type).set(accuracy)
 
+    dataset = pd.concat([
+        dataset,
+        pd.DataFrame({
+            "Review": [review],
+            "Liked": 1 if [corrected] else 0
+            })]).reset_index(drop=True)
+
+    dataset.to_csv("output/reviews.tsv", sep="\t", quoting=3)
+
+    subprocess.run(["dvc", "add", "output/reviews.tsv"], check=True)
+
+    subprocess.run(["dvc", "push"], check=True)
     return "Thank you for submitting"
 
 
