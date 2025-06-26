@@ -42,7 +42,6 @@ last_req_time_gauge = Gauge(
     "last_req_time_seconds", "Time taken for last request", ["model_type"]
 )
 accuracy_gauge = Gauge("accuracy", "Accuracy of the model", ["model_type"])
-accuracy_gauge.labels(model_type=MODEL_TYPE).set(0)
 
 # Track correct/wrong for accuracy calculation
 correct_wrong_counts = {
@@ -255,4 +254,5 @@ def submit():
 
 
 if __name__ == "__main__":
+    accuracy_gauge.labels(model_type=MODEL_TYPE).set(0)
     app.run(host="0.0.0.0", port=5000, debug=True)
