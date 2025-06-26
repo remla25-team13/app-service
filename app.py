@@ -1,18 +1,17 @@
 import os
+import subprocess
 import time
 from datetime import datetime, timezone
-import subprocess
 
-import requests
 import pandas as pd
+import requests
+from dvc.api import open as dvc_open
 from flasgger import Swagger
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from lib_version.version_util import VersionUtil
 from prometheus_client import Counter, Gauge
 from prometheus_flask_exporter import PrometheusMetrics
-
-from dvc.api import open as dvc_open
 
 app = Flask(__name__)
 metrics = PrometheusMetrics(app)
@@ -249,8 +248,8 @@ def submit():
         subprocess.run(["dvc", "add", "output/reviews.tsv"], check=True)
 
         subprocess.run(["dvc", "push"], check=True)
-    
-    return "Thank you for submitting"
+
+    return jsonify({"message": "Thank you for submitting"})
 
 
 if __name__ == "__main__":
