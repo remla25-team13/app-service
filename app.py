@@ -166,14 +166,12 @@ def predict():
         description: Sentiment prediction from model-service
     """
     input_data = request.get_json()
-    print(request.date)
     try:
         start = time.time()
         request.model_type = MODEL_TYPE  # set for metrics
         response = requests.post(f"{MODEL_SERVICE_URL}/predict", json=input_data)
         end = time.time()
 
-        # prediction_counter.labels(model_type=MODEL_TYPE).inc()
         last_req_time_gauge.labels(model_type=MODEL_TYPE).set(end - start)
 
         return jsonify(response.json()), response.status_code
