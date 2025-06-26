@@ -20,9 +20,9 @@ CORS(app)
 swagger = Swagger(app)
 dataset = None
 
-# MODEL_SERVICE_URL = os.environ["MODEL_SERVICE_URL"]
 MODEL_SERVICE_URL = os.getenv("MODEL_SERVICE_URL", "http://localhost:8081")
 MODEL_TYPE = os.getenv("MODEL_SERVICE_URL", "gauss")
+SYNC_DATASET = os.getenv("SYNC_DATASET", "False") == True
 
 with dvc_open("output/reviews.tsv", mode='r') as f:
     dataset = pd.read_csv(f, delimiter="\t", quoting=3)
@@ -207,7 +207,7 @@ def submit():
               example: This is a great restaurant!
             model_type:
                 type: string
-                example: gauss or multi
+                example: gauss
     responses:
       200:
         description: "Test"
@@ -236,18 +236,20 @@ def submit():
         accuracy = correct_wrong_counts[model_type]["correct"] / total
         accuracy_gauge.labels(model_type=model_type).set(accuracy)
 
-    dataset = pd.concat([
-        dataset,
-        pd.DataFrame({
-            "Review": [review],
-            "Liked": 1 if [corrected] else 0
-            })]).reset_index(drop=True)
+    if SYNC_DATASET:
+        dataset = pd.concat([
+            dataset,
+            pd.DataFrame({
+                "Review": [review],
+                "Liked": 1 if [corrected] else 0
+                })]).reset_index(drop=True)
 
-    dataset.to_csv("output/reviews.tsv", sep="\t", quoting=3)
+        dataset.to_csv("output/reviews.tsv", sep="\t", quoting=3)
 
-    subprocess.run(["dvc", "add", "output/reviews.tsv"], check=True)
+        subprocess.run(["dvc", "add", "output/reviews.tsv"], check=True)
 
-    subprocess.run(["dvc", "push"], check=True)
+        subprocess.run(["dvc", "push"], check=True)
+    
     return "Thank you for submitting"
 
 
