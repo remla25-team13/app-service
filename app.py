@@ -119,7 +119,7 @@ def app_service_version():
       200:
         description: Application version in JSON format
     """
-    return {"version": "1.2.0", "model_type": MODEL_TYPE}
+    return {"version": "2.0.0", "model_type": MODEL_TYPE}
 
 
 @app.route("/version/lib-version", methods=["GET"])
