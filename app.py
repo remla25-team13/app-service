@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import datetime, timezone
 import subprocess
 
 import requests
@@ -19,18 +20,15 @@ CORS(app)
 swagger = Swagger(app)
 dataset = None
 
-MODEL_SERVICE_URL = os.environ["MODEL_SERVICE_URL"]
-MODEL_TYPE = os.environ["MODEL_TYPE"]
+# MODEL_SERVICE_URL = os.environ["MODEL_SERVICE_URL"]
+MODEL_SERVICE_URL = os.getenv("MODEL_SERVICE_URL", "http://localhost:8081")
+MODEL_TYPE = os.getenv("MODEL_SERVICE_URL", "gauss")
 
 with dvc_open("output/reviews.tsv", mode='r') as f:
     dataset = pd.read_csv(f, delimiter="\t", quoting=3)
     print("Saved latest reviews version from DVC")
 
 
-# Prometheus metrics using prometheus_flask_exporter
-prediction_counter = Counter(
-    "predictions_total", "Total predictions made", ["model_type"]
-)
 failed_prediction_counter = Counter(
     "failed_predictions_total", "Total failed prediction attempts", ["model_type"]
 )
@@ -139,6 +137,12 @@ def lib_version():
     return {"version": VersionUtil.get_version()}
 
 
+def get_date():
+    return datetime.now(timezone.utc).date()
+
+
+@metrics.histogram("predictions_per_hour", 'Predictions per hour',
+                   labels={'hour': lambda r: get_date})
 @app.route("/predict", methods=["POST"])
 def predict():
     """
@@ -168,7 +172,6 @@ def predict():
         response = requests.post(f"{MODEL_SERVICE_URL}/predict", json=input_data)
         end = time.time()
 
-        prediction_counter.labels(model_type=MODEL_TYPE).inc()
         last_req_time_gauge.labels(model_type=MODEL_TYPE).set(end - start)
 
         return jsonify(response.json()), response.status_code
@@ -249,4 +252,5 @@ def submit():
 
 
 if __name__ == "__main__":
+    accuracy_gauge.labels(model_type=MODEL_TYPE).set(0)
     app.run(host="0.0.0.0", port=5000, debug=True)
