@@ -1,7 +1,7 @@
 # App service
 This repository contains the backend app service our REMLA25 project.
 
-# Ussage
+# Usage
 ```sh
 # Clone repository 
 git clone git@github.com:remla25-team13/app-service.git
