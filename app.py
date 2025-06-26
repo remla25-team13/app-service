@@ -22,7 +22,7 @@ dataset = None
 
 MODEL_SERVICE_URL = os.getenv("MODEL_SERVICE_URL", "http://localhost:8081")
 MODEL_TYPE = os.getenv("MODEL_TYPE", "gauss")
-SYNC_DATASET = os.getenv("SYNC_DATASET", "False") == True
+SYNC_DATASET = os.getenv("SYNC_DATASET", "False") == 'True'
 
 with dvc_open("output/reviews.tsv", mode='r') as f:
     dataset = pd.read_csv(f, delimiter="\t", quoting=3)
@@ -196,7 +196,7 @@ def submit():
           type: object
           required: [predicted, corrected, review]
           properties:
-            predicted:
+            original:
               type: boolean
               example: True
             corrected:
@@ -205,7 +205,7 @@ def submit():
             review:
               type: string
               example: This is a great restaurant!
-            model_type:
+            modelType:
                 type: string
                 example: gauss
     responses:
@@ -215,9 +215,9 @@ def submit():
     global dataset
 
     body = request.get_json()
-    predicted = body["predicted"]
+    predicted = body["original"]
     corrected = body["corrected"]
-    model_type = body["model_type"].lower()
+    model_type = body["modelType"].lower()
     request.model_type = model_type
     review = body["review"]
 
