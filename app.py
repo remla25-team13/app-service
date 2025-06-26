@@ -21,7 +21,7 @@ swagger = Swagger(app)
 dataset = None
 
 MODEL_SERVICE_URL = os.getenv("MODEL_SERVICE_URL", "http://localhost:8081")
-MODEL_TYPE = os.getenv("MODEL_SERVICE_URL", "gauss")
+MODEL_TYPE = os.getenv("MODEL_TYPE", "gauss")
 SYNC_DATASET = os.getenv("SYNC_DATASET", "False") == True
 
 with dvc_open("output/reviews.tsv", mode='r') as f:
